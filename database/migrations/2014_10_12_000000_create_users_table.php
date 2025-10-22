@@ -8,9 +8,8 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('users', function (Blueprint $table) {
             $table->id('user_id');
-            $table->string('id_silsilah')->unique();
+            $table->string('id_silsilah')->nullable();
             $table->unsignedBigInteger('id_parent')->nullable();
-            $table->unsignedBigInteger('id_pasangan')->nullable();
             $table->string('name');
             $table->string('tempat_tinggal')->nullable();
             $table->date('tanggal_lahir')->nullable();
@@ -19,7 +18,6 @@ return new class extends Migration {
 
             // Foreign key ke tabel User (self relation)
             $table->foreign('id_parent')->references('user_id')->on('users')->onDelete('set null');
-            $table->foreign('id_pasangan')->references('user_id')->on('users')->onDelete('set null');
         });
     }
 

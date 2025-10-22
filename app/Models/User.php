@@ -15,7 +15,6 @@ class User extends Model
     protected $fillable = [
         'id_silsilah',
         'id_parent',
-        'id_pasangan',
         'name',
         'tempat_tinggal',
         'tanggal_lahir',
@@ -28,9 +27,9 @@ class User extends Model
     }
 
     // Relasi ke pasangan
-    public function pasangan() {
-        return $this->belongsTo(User::class, 'id_pasangan');
-    }
+    // public function pasangan() {
+    //     return $this->belongsTo(User::class, 'id_pasangan');
+    // }
 
     // Relasi ke anak-anak
     public function children() {

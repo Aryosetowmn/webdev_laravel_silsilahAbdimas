@@ -62,13 +62,13 @@ class PasanganController extends Controller
         $pasangan = Pasangan::create($validated);
 
         // Update masing-masing user agar saling terhubung
-        User::where('user_id', $validated['primary_child_id'])->update([
-            'id_pasangan' => $validated['related_user_id']
-        ]);
+        // User::where('user_id', $validated['primary_child_id'])->update([
+        //     'id_pasangan' => $validated['related_user_id']
+        // ]);
 
-        User::where('user_id', $validated['related_user_id'])->update([
-            'id_pasangan' => $validated['primary_child_id']
-        ]);
+        // User::where('user_id', $validated['related_user_id'])->update([
+        //     'id_pasangan' => $validated['primary_child_id']
+        // ]);
 
         return response()->json([
             'message' => 'Pasangan berhasil ditambahkan',
@@ -87,8 +87,8 @@ class PasanganController extends Controller
         }
 
         // Reset id_pasangan kedua user
-        User::where('user_id', $pasangan->primary_child_id)->update(['id_pasangan' => null]);
-        User::where('user_id', $pasangan->related_user_id)->update(['id_pasangan' => null]);
+        // User::where('user_id', $pasangan->primary_child_id)->update(['id_pasangan' => null]);
+        // User::where('user_id', $pasangan->related_user_id)->update(['id_pasangan' => null]);
 
         $pasangan->delete();
 

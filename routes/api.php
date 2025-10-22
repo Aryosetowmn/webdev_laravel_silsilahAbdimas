@@ -25,6 +25,10 @@ Route::get('/user', function () {
     return \App\Models\User::all();
 });
 Route::post('/user', [UserController::class, 'store']);
+Route::post('/user/no-silsilah', [UserController::class, 'storeWithoutSilsilah']);
+Route::post('/pasangan', [PasanganController::class, 'store']);
+
+
 Route::post('/users/add-child', [UserController::class, 'addChild']);
 Route::get('/user/silsilah/{id_silsilah}', [UserController::class, 'getBySilsilah']);
 Route::post('/user/login', [UserController::class, 'login']);

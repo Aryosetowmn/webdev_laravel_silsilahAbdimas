@@ -16,7 +16,6 @@ class UserController extends Controller
             'tempat_tinggal' => 'nullable|string',
             'tanggal_lahir' => 'nullable|date',
             'id_parent' => 'nullable|string',
-            'id_pasangan' => 'nullable|integer',
             'avatar' => 'nullable|string',
         ]);
 
@@ -88,33 +87,60 @@ public function getBySilsilah($id_silsilah)
         return response()->json(['message' => 'User not found'], 404);
     }
 
-    // Ambil semua keturunan secara rekursif
-    $userWithChildren = $this->loadChildrenRecursive($user);
+    // Ambil semua keturunan secara rekursif (dengan pasangan)
+    $userWithRelations = $this->loadChildrenAndSpouseRecursive($user);
 
-    return response()->json($userWithChildren);
+    return response()->json($userWithRelations);
 }
 
-private function loadChildrenRecursive($user)
+private function loadChildrenAndSpouseRecursive($user)
 {
-    // Ambil semua anak
+    // 🔹 Ambil semua anak
     $children = User::where('id_parent', $user->user_id)->get();
 
-    // Rekursif untuk setiap anak
+    // 🔹 Rekursif untuk setiap anak
     $childrenWithDescendants = [];
     foreach ($children as $child) {
-        $childrenWithDescendants[] = $this->loadChildrenRecursive($child);
+        $childrenWithDescendants[] = $this->loadChildrenAndSpouseRecursive($child);
     }
 
-    // Return struktur lengkap dengan anak-anak di dalamnya
+    // 🔹 Ambil pasangan (bisa dua arah)
+    $spouses = \App\Models\Pasangan::where('primary_child_id', $user->user_id)
+        ->orWhere('related_user_id', $user->user_id)
+        ->get();
+
+    $spouseList = [];
+
+    foreach ($spouses as $pasangan) {
+        // Tentukan siapa pasangan-nya (bukan dirinya sendiri)
+        $spouseUserId = $pasangan->primary_child_id == $user->user_id
+            ? $pasangan->related_user_id
+            : $pasangan->primary_child_id;
+
+        $spouseUser = \App\Models\User::find($spouseUserId);
+
+        if ($spouseUser) {
+            $spouseList[] = [
+                'user_id' => $spouseUser->user_id,
+                'name' => $spouseUser->name,
+                'tempat_tinggal' => $spouseUser->tempat_tinggal,
+                'tanggal_lahir' => $spouseUser->tanggal_lahir,
+            ];
+        }
+    }
+
+    // 🔹 Return struktur lengkap dengan anak dan pasangan
     return [
         'user_id' => $user->user_id,
         'id_silsilah' => $user->id_silsilah,
         'name' => $user->name,
         'tempat_tinggal' => $user->tempat_tinggal,
         'tanggal_lahir' => $user->tanggal_lahir,
+        'spouse' => $spouseList, // ← pasangan ditambahkan di sini
         'children' => $childrenWithDescendants,
     ];
 }
+
 
 public function login(Request $request)
 {
@@ -136,6 +162,29 @@ public function login(Request $request)
         'data' => $user
     ]);
 }
+
+public function storeWithoutSilsilah(Request $request)
+{
+    // Validasi data tanpa id_silsilah wajib
+    $validated = $request->validate([
+        'id_silsilah' => 'nullable',
+        'name' => 'required|string',
+        'tempat_tinggal' => 'nullable|string',
+        'tanggal_lahir' => 'nullable|date',
+        'id_parent' => 'nullable|string',
+        'avatar' => 'nullable|string',
+    ]);
+
+    // Simpan data user ke database
+    $user = User::create($validated);
+
+    // Kembalikan response JSON
+    return response()->json([
+        'message' => 'User berhasil dibuat tanpa id_silsilah wajib!',
+        'data' => $user
+    ]);
+}
+
 
 }
 
