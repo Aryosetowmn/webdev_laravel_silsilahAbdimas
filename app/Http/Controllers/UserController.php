@@ -116,5 +116,26 @@ private function loadChildrenRecursive($user)
     ];
 }
 
+public function login(Request $request)
+{
+    $validated = $request->validate([
+        'id_silsilah' => 'required|string',
+        'tanggal_lahir' => 'nullable|date'
+    ]);
+
+    $user = User::where('id_silsilah', $validated['id_silsilah'])
+        ->when($validated['tanggal_lahir'] ?? false, fn($q) => $q->where('tanggal_lahir', $validated['tanggal_lahir']))
+        ->first();
+
+    if (!$user) {
+        return response()->json(['message' => 'Silsilah NIK atau tanggal lahir tidak ditemukan'], 404);
+    }
+
+    return response()->json([
+        'message' => 'Login berhasil',
+        'data' => $user
+    ]);
+}
+
 }
 

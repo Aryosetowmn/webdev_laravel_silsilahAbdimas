@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\PasanganController;
 
 
 /*
@@ -26,3 +27,4 @@ Route::get('/user', function () {
 Route::post('/user', [UserController::class, 'store']);
 Route::post('/users/add-child', [UserController::class, 'addChild']);
 Route::get('/user/silsilah/{id_silsilah}', [UserController::class, 'getBySilsilah']);
+Route::post('/user/login', [UserController::class, 'login']);
