@@ -27,8 +27,11 @@ Route::get('/user', function () {
 Route::post('/users', [UserController::class, 'store']);
 Route::post('/users/no-tree', [UserController::class, 'storeWithoutTree']);
 Route::post('/spouse', [SpouseController::class, 'store']);
-Route::get('/export-users', [UserController::class, 'exportExcel']);
+// Route::get('/export-users', [UserController::class, 'exportExcel']);
 
 Route::post('/users/add-child', [UserController::class, 'addChild']);
 Route::get('/users/tree/{family_tree_id}', [UserController::class, 'getByTree']);
 Route::post('/users/login', [UserController::class, 'login']);
+
+Route::get('/export-users', [UserController::class, 'exportExcel']);
+

@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 
+
 class UserController extends Controller
 {
     public function store(Request $request)
@@ -176,47 +177,74 @@ class UserController extends Controller
             'data' => $user
         ]);
     }
-    public function exportExcel()
-    {
-        // Ambil semua data user dari database
-        $users = User::all(['user_id', 'family_tree_id', 'full_name', 'address', 'birth_date']);
 
-        // Ubah ke array biasa
-        $dataArray = $users->map(function ($user) {
-            return [
-                'User ID' => $user->user_id,
-                'Family Tree ID' => $user->family_tree_id,
-                'Full Name' => $user->full_name,
-                'Address' => $user->address,
-                'Birth Date' => $user->birth_date,
-            ];
-        })->toArray();
+    // public function exportExcel()
+    // {
+    //     // Ambil semua data user dari database
+    //     $users = User::all(['user_id', 'family_tree_id', 'full_name', 'address', 'birth_date']);
 
-        // Buat export class inline (tanpa file terpisah)
-        $export = new class($dataArray) implements FromArray, WithHeadings {
-            protected $data;
+    //     // Ubah ke array biasa
+    //     $dataArray = $users->map(function ($user) {
+    //         return [
+    //             'User ID' => $user->user_id,
+    //             'Family Tree ID' => $user->family_tree_id,
+    //             'Full Name' => $user->full_name,
+    //             'Address' => $user->address,
+    //             'Birth Date' => $user->birth_date,
+    //         ];
+    //     })->toArray();
 
-            public function __construct(array $data)
-            {
-                $this->data = $data;
-            }
+    //     // Buat export class inline (tanpa file terpisah)
+    //     $export = new class($dataArray) implements FromArray, WithHeadings {
+    //         protected $data;
 
-            public function array(): array
-            {
-                return $this->data;
-            }
+    //         public function __construct(array $data)
+    //         {
+    //             $this->data = $data;
+    //         }
 
-            public function headings(): array
-            {
-                return ['User ID', 'Family Tree ID', 'Full Name', 'Address', 'Birth Date'];
-            }
-        };
+    //         public function array(): array
+    //         {
+    //             return $this->data;
+    //         }
 
-        $fileName = 'users_export_' . now()->format('Y-m-d_His') . '.xlsx';
+    //         public function headings(): array
+    //         {
+    //             return ['User ID', 'Family Tree ID', 'Full Name', 'Address', 'Birth Date'];
+    //         }
+    //     };
 
-        return Excel::download($export, $fileName);
-    }
+    //     $fileName = 'users_export_' . now()->format('Y-m-d_His') . '.xlsx';
+
+    //     return Excel::download($export, $fileName);
+    // }
+
+public function exportExcel()
+{
+    $users = User::all(['user_id', 'family_tree_id', 'full_name', 'address', 'birth_date']);
+
+    $dataArray = $users->map(function ($user) {
+        return [
+            'User ID' => $user->user_id,
+            'Family Tree ID' => $user->family_tree_id,
+            'Full Name' => $user->full_name,
+            'Address' => $user->address,
+            'Birth Date' => $user->birth_date,
+        ];
+    })->toArray();
+
+    $export = new class($dataArray) implements FromArray, WithHeadings {
+        protected $data;
+        public function __construct(array $data) { $this->data = $data; }
+        public function array(): array { return $this->data; }
+        public function headings(): array {
+            return ['User ID', 'Family Tree ID', 'Full Name', 'Address', 'Birth Date'];
+        }
+    };
+
+    $fileName = 'users_export_' . now()->format('Y-m-d_His') . '.xlsx';
+    return Excel::download($export, $fileName);
 }
 
 
-    
+}
