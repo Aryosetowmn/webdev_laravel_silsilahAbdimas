@@ -8,8 +8,8 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('admins', function (Blueprint $table) {
             $table->id('admin_id');
-            $table->string('id_silsilah')->unique();
-            $table->string('name');
+            $table->string('family_tree_id')->unique();
+            $table->string('full_name');
             $table->timestamps();
         });
     }

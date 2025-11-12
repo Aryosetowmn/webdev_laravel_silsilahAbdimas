@@ -4,25 +4,26 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Spouse;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithHeadings;
 
 class UserController extends Controller
 {
     public function store(Request $request)
     {
-        // Validasi data (opsional tapi bagus)
         $validated = $request->validate([
-            'id_silsilah' => 'required|unique:users',
-            'name' => 'required|string',
-            'tempat_tinggal' => 'nullable|string',
-            'tanggal_lahir' => 'nullable|date',
-            'id_parent' => 'nullable|string',
+            'family_tree_id' => 'required|unique:users',
+            'full_name' => 'required|string',
+            'address' => 'nullable|string',
+            'birth_date' => 'nullable|date',
+            'parent_id' => 'nullable|string',
             'avatar' => 'nullable|string',
         ]);
 
-        // Simpan data ke database
         $user = User::create($validated);
 
-        // Kembalikan response JSON
         return response()->json([
             'message' => 'User berhasil dibuat!',
             'data' => $user
@@ -30,161 +31,192 @@ class UserController extends Controller
     }
 
     public function addChild(Request $request)
-{
-    $request->validate([
-        'id_parent' => 'required|exists:users,user_id',
-        'name' => 'required|string|max:255',
-        'tempat_tinggal' => 'nullable|string|max:255',
-        'tanggal_lahir' => 'nullable|date',
-    ]);
+    {
+        $request->validate([
+            'parent_id' => 'required|exists:users,user_id',
+            'full_name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'birth_date' => 'nullable|date',
+        ]);
 
-    // Ambil data parent berdasarkan id_parent
-    $parent = User::find($request->id_parent);
+        $parent = User::find($request->parent_id);
 
-    if (!$parent) {
-        return response()->json(['message' => 'Parent not found'], 404);
-    }
-
-    // Ambil id_silsilah parent
-    $parentSilsilah = $parent->id_silsilah;
-
-    // Ambil semua anak dari parent ini
-    $children = User::where('id_silsilah', 'like', $parentSilsilah . '.%')->get();
-
-    // Cari urutan terakhir anak
-    $lastChildNumber = 0;
-    foreach ($children as $child) {
-        $parts = explode('.', $child->id_silsilah);
-        $lastPart = end($parts);
-        if (is_numeric($lastPart) && $lastPart > $lastChildNumber) {
-            $lastChildNumber = $lastPart;
+        if (!$parent) {
+            return response()->json(['message' => 'Parent not found'], 404);
         }
+
+        // Ambil family_tree_id parent
+        $parentTree = $parent->family_tree_id;
+
+        // Ambil semua anak dari parent ini
+        $children = User::where('family_tree_id', 'like', $parentTree . '.%')->get();
+
+        // Cari urutan terakhir anak
+        $lastChildNumber = 0;
+        foreach ($children as $child) {
+            $parts = explode('.', $child->family_tree_id);
+            $lastPart = end($parts);
+            if (is_numeric($lastPart) && $lastPart > $lastChildNumber) {
+                $lastChildNumber = $lastPart;
+            }
+        }
+
+        // Buat family_tree_id baru untuk anak
+        $newTreeId = $parentTree . '.' . ($lastChildNumber + 1);
+
+        // Simpan data anak baru
+        $child = User::create([
+            'parent_id' => $parent->user_id,
+            'family_tree_id' => $newTreeId,
+            'full_name' => $request->full_name,
+            'address' => $request->address,
+            'birth_date' => $request->birth_date,
+        ]);
+
+        return response()->json([
+            'message' => 'Anak baru berhasil ditambahkan',
+            'data' => $child
+        ]);
     }
 
-    // Buat ID silsilah baru untuk anak
-    $newIdSilsilah = $parentSilsilah . '.' . ($lastChildNumber + 1);
+    public function getByTree($family_tree_id)
+    {
+        $user = User::where('family_tree_id', $family_tree_id)->first();
 
-    // Simpan data anak baru
-    $child = User::create([
-        'id_parent' => $parent->user_id,
-        'id_silsilah' => $newIdSilsilah,
-        'name' => $request->name,
-        'tempat_tinggal' => $request->tempat_tinggal,
-        'tanggal_lahir' => $request->tanggal_lahir,
-    ]);
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
 
-    return response()->json([
-        'message' => 'Anak baru berhasil ditambahkan',
-        'data' => $child
-    ]);
-}
-public function getBySilsilah($id_silsilah)
-{
-    // Cari user berdasarkan id_silsilah
-    $user = User::where('id_silsilah', $id_silsilah)->first();
+        $userWithRelations = $this->loadChildrenAndSpouseRecursive($user);
 
-    if (!$user) {
-        return response()->json(['message' => 'User not found'], 404);
+        return response()->json($userWithRelations);
     }
 
-    // Ambil semua keturunan secara rekursif (dengan pasangan)
-    $userWithRelations = $this->loadChildrenAndSpouseRecursive($user);
+    private function loadChildrenAndSpouseRecursive($user)
+    {
+        // Ambil semua anak
+        $children = User::where('parent_id', $user->user_id)->get();
 
-    return response()->json($userWithRelations);
-}
+        $childrenWithDescendants = [];
+        foreach ($children as $child) {
+            $childrenWithDescendants[] = $this->loadChildrenAndSpouseRecursive($child);
+        }
 
-private function loadChildrenAndSpouseRecursive($user)
-{
-    // 🔹 Ambil semua anak
-    $children = User::where('id_parent', $user->user_id)->get();
+        // Ambil pasangan (dua arah)
+        $spouses = Spouse::where('primary_child_id', $user->user_id)
+            ->orWhere('related_user_id', $user->user_id)
+            ->get();
 
-    // 🔹 Rekursif untuk setiap anak
-    $childrenWithDescendants = [];
-    foreach ($children as $child) {
-        $childrenWithDescendants[] = $this->loadChildrenAndSpouseRecursive($child);
+        $spouseList = [];
+
+        foreach ($spouses as $spouse) {
+            $spouseUserId = $spouse->primary_child_id == $user->user_id
+                ? $spouse->related_user_id
+                : $spouse->primary_child_id;
+
+            $spouseUser = User::find($spouseUserId);
+
+            if ($spouseUser) {
+                $spouseList[] = [
+                    'user_id' => $spouseUser->user_id,
+                    'full_name' => $spouseUser->full_name,
+                    'address' => $spouseUser->address,
+                    'birth_date' => $spouseUser->birth_date,
+                ];
+            }
+        }
+
+        return [
+            'user_id' => $user->user_id,
+            'family_tree_id' => $user->family_tree_id,
+            'full_name' => $user->full_name,
+            'address' => $user->address,
+            'birth_date' => $user->birth_date,
+            'spouse' => $spouseList,
+            'children' => $childrenWithDescendants,
+        ];
     }
 
-    // 🔹 Ambil pasangan (bisa dua arah)
-    $spouses = \App\Models\Pasangan::where('primary_child_id', $user->user_id)
-        ->orWhere('related_user_id', $user->user_id)
-        ->get();
+    public function login(Request $request)
+    {
+        $validated = $request->validate([
+            'family_tree_id' => 'required|string',
+            'birth_date' => 'nullable|date'
+        ]);
 
-    $spouseList = [];
+        $user = User::where('family_tree_id', $validated['family_tree_id'])
+            ->when($validated['birth_date'] ?? false, fn($q) => $q->where('birth_date', $validated['birth_date']))
+            ->first();
 
-    foreach ($spouses as $pasangan) {
-        // Tentukan siapa pasangan-nya (bukan dirinya sendiri)
-        $spouseUserId = $pasangan->primary_child_id == $user->user_id
-            ? $pasangan->related_user_id
-            : $pasangan->primary_child_id;
+        if (!$user) {
+            return response()->json(['message' => 'Silsilah NIK atau tanggal lahir tidak ditemukan'], 404);
+        }
 
-        $spouseUser = \App\Models\User::find($spouseUserId);
+        return response()->json([
+            'message' => 'Login berhasil',
+            'data' => $user
+        ]);
+    }
 
-        if ($spouseUser) {
-            $spouseList[] = [
-                'user_id' => $spouseUser->user_id,
-                'name' => $spouseUser->name,
-                'tempat_tinggal' => $spouseUser->tempat_tinggal,
-                'tanggal_lahir' => $spouseUser->tanggal_lahir,
+    public function storeWithoutTree(Request $request)
+    {
+        $validated = $request->validate([
+            'family_tree_id' => 'nullable',
+            'full_name' => 'required|string',
+            'address' => 'nullable|string',
+            'birth_date' => 'nullable|date',
+            'parent_id' => 'nullable|string',
+            'avatar' => 'nullable|string',
+        ]);
+
+        $user = User::create($validated);
+
+        return response()->json([
+            'message' => 'User berhasil dibuat tanpa family tree wajib!',
+            'data' => $user
+        ]);
+    }
+    public function exportExcel()
+    {
+        // Ambil semua data user dari database
+        $users = User::all(['user_id', 'family_tree_id', 'full_name', 'address', 'birth_date']);
+
+        // Ubah ke array biasa
+        $dataArray = $users->map(function ($user) {
+            return [
+                'User ID' => $user->user_id,
+                'Family Tree ID' => $user->family_tree_id,
+                'Full Name' => $user->full_name,
+                'Address' => $user->address,
+                'Birth Date' => $user->birth_date,
             ];
-        }
+        })->toArray();
+
+        // Buat export class inline (tanpa file terpisah)
+        $export = new class($dataArray) implements FromArray, WithHeadings {
+            protected $data;
+
+            public function __construct(array $data)
+            {
+                $this->data = $data;
+            }
+
+            public function array(): array
+            {
+                return $this->data;
+            }
+
+            public function headings(): array
+            {
+                return ['User ID', 'Family Tree ID', 'Full Name', 'Address', 'Birth Date'];
+            }
+        };
+
+        $fileName = 'users_export_' . now()->format('Y-m-d_His') . '.xlsx';
+
+        return Excel::download($export, $fileName);
     }
-
-    // 🔹 Return struktur lengkap dengan anak dan pasangan
-    return [
-        'user_id' => $user->user_id,
-        'id_silsilah' => $user->id_silsilah,
-        'name' => $user->name,
-        'tempat_tinggal' => $user->tempat_tinggal,
-        'tanggal_lahir' => $user->tanggal_lahir,
-        'spouse' => $spouseList, // ← pasangan ditambahkan di sini
-        'children' => $childrenWithDescendants,
-    ];
 }
 
 
-public function login(Request $request)
-{
-    $validated = $request->validate([
-        'id_silsilah' => 'required|string',
-        'tanggal_lahir' => 'nullable|date'
-    ]);
-
-    $user = User::where('id_silsilah', $validated['id_silsilah'])
-        ->when($validated['tanggal_lahir'] ?? false, fn($q) => $q->where('tanggal_lahir', $validated['tanggal_lahir']))
-        ->first();
-
-    if (!$user) {
-        return response()->json(['message' => 'Silsilah NIK atau tanggal lahir tidak ditemukan'], 404);
-    }
-
-    return response()->json([
-        'message' => 'Login berhasil',
-        'data' => $user
-    ]);
-}
-
-public function storeWithoutSilsilah(Request $request)
-{
-    // Validasi data tanpa id_silsilah wajib
-    $validated = $request->validate([
-        'id_silsilah' => 'nullable',
-        'name' => 'required|string',
-        'tempat_tinggal' => 'nullable|string',
-        'tanggal_lahir' => 'nullable|date',
-        'id_parent' => 'nullable|string',
-        'avatar' => 'nullable|string',
-    ]);
-
-    // Simpan data user ke database
-    $user = User::create($validated);
-
-    // Kembalikan response JSON
-    return response()->json([
-        'message' => 'User berhasil dibuat tanpa id_silsilah wajib!',
-        'data' => $user
-    ]);
-}
-
-
-}
-
+    

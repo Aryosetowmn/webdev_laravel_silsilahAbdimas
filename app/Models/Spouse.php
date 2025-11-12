@@ -5,11 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Pasangan extends Model
+class Spouse extends Model
 {
     use HasFactory;
 
-    protected $primaryKey = 'pasangan_id';
+    protected $primaryKey = 'spouse_id';
 
     protected $fillable = [
         'primary_child_id',

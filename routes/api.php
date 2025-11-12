@@ -3,7 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\PasanganController;
+use App\Http\Controllers\SpouseController;
 
 
 /*
@@ -24,11 +24,11 @@ use App\Http\Controllers\PasanganController;
 Route::get('/user', function () {
     return \App\Models\User::all();
 });
-Route::post('/user', [UserController::class, 'store']);
-Route::post('/user/no-silsilah', [UserController::class, 'storeWithoutSilsilah']);
-Route::post('/pasangan', [PasanganController::class, 'store']);
-
+Route::post('/users', [UserController::class, 'store']);
+Route::post('/users/no-tree', [UserController::class, 'storeWithoutTree']);
+Route::post('/spouse', [SpouseController::class, 'store']);
+Route::get('/export-users', [UserController::class, 'exportExcel']);
 
 Route::post('/users/add-child', [UserController::class, 'addChild']);
-Route::get('/user/silsilah/{id_silsilah}', [UserController::class, 'getBySilsilah']);
-Route::post('/user/login', [UserController::class, 'login']);
+Route::get('/users/tree/{family_tree_id}', [UserController::class, 'getByTree']);
+Route::post('/users/login', [UserController::class, 'login']);

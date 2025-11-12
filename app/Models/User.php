@@ -13,17 +13,17 @@ class User extends Model
 {
     protected $primaryKey = 'user_id';
     protected $fillable = [
-        'id_silsilah',
-        'id_parent',
-        'name',
-        'tempat_tinggal',
-        'tanggal_lahir',
+        'family_tree_id',
+        'parent_id',
+        'full_name',
+        'address',
+        'birth_date',
         'avatar',
     ];
 
     // Relasi ke orang tua
     public function parent() {
-        return $this->belongsTo(User::class, 'id_parent');
+        return $this->belongsTo(User::class, 'parent_id');
     }
 
     // Relasi ke pasangan
@@ -33,6 +33,6 @@ class User extends Model
 
     // Relasi ke anak-anak
     public function children() {
-        return $this->hasMany(User::class, 'id_parent');
+        return $this->hasMany(User::class, 'parent_id');
     }
 }
