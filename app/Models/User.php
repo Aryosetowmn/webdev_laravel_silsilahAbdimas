@@ -17,7 +17,7 @@ class User extends Model
         'parent_id',
         'full_name',
         'address',
-        'birth_date',
+        'birth_year',
         'avatar',
     ];
 

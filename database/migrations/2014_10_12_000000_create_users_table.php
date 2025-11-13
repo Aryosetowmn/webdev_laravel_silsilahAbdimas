@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->unsignedBigInteger('parent_id')->nullable();
             $table->string('full_name');
             $table->string('address')->nullable();
-            $table->date('birth_date')->nullable();
+            $table->string('birth_year')->nullable();
             $table->string('avatar')->nullable();
             $table->timestamps();
 
