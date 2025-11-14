@@ -38,8 +38,9 @@ Route::put('/user/update/{id}', [UserController::class, 'updateProfile']);
 Route::post('/spouse', [SpouseController::class, 'store']);
 Route::post('/users/add-child', [UserController::class, 'addChild']);
 
-//GET PROFILE BY NIT - HALAMAN 7, HALAMAN 8
-Route::get('/family/search', [UserController::class, 'searchByFamilyTreeId']);
+//GET SEARCH PROFILE BY NIT AND NAME - HALAMAN 7, HALAMAN 8
+Route::get('/search', [UserController::class, 'searchByFamilyTreeIdOrName']); //gak kepake
+Route::get('/user/find', [UserController::class, 'getSingleBySearch']);
 
 //GET DETAIL PROFILE BY ID - HALAMAN 5, HALAMAN 6
 Route::get('/user/{id}', [UserController::class, 'getById']);

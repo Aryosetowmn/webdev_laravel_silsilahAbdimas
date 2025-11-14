@@ -155,33 +155,33 @@ class UserController extends Controller
 public function updateProfileWithCredential(Request $request)
 {
     $request->validate([
-        'family_tree_id' => 'required|string',           // data target yang mau diubah
-        'credential_family_tree_id' => 'required|string' // siapa yang ngedit
+        'family_tree_id' => 'required|string',           // target yang mau diubah
+        'credential_family_tree_id' => 'required|string' // siapa yang mengedit
     ]);
 
     $targetTreeId = $request->family_tree_id;
     $credentialTreeId = $request->credential_family_tree_id;
 
-    // Cek apakah data target ada
+    // Ambil user target
     $user = User::where('family_tree_id', $targetTreeId)->first();
     if (!$user) {
         return response()->json(['message' => 'User dengan family_tree_id tersebut tidak ditemukan'], 404);
     }
 
-    // Cek izin akses:
-    // 1. Kalau credential sama → boleh edit diri sendiri
-    // 2. Kalau credential adalah parent langsung dari target → juga boleh
-    $isParent = str_starts_with($targetTreeId, $credentialTreeId . '.')
-                && substr_count($targetTreeId, '.') === substr_count($credentialTreeId, '.') + 1;
+    // RULE AKSES:
+    // 1. credential == target → edit diri sendiri
+    // 2. credential sebagai prefix target → boleh edit turunannya (tanpa batas level)
+    $isSelf = $targetTreeId === $credentialTreeId;
+    $isAncestor = str_starts_with($targetTreeId, $credentialTreeId . '.');
 
-    if ($targetTreeId !== $credentialTreeId && !$isParent) {
+    if (!$isSelf && !$isAncestor) {
         return response()->json(['message' => 'Anda tidak memiliki izin untuk mengedit data ini'], 403);
     }
 
-    // Ambil semua input kecuali key credential
+    // Ambil data yang boleh diupdate
     $updates = $request->except(['family_tree_id', 'credential_family_tree_id']);
 
-    // Update data user
+    // Update data
     $user->update($updates);
 
     return response()->json([
@@ -191,32 +191,35 @@ public function updateProfileWithCredential(Request $request)
 }
 
 
-    public function searchByFamilyTreeId(Request $request)
+public function searchByFamilyTreeIdOrName(Request $request)
 {
-    $search = $request->query('family_tree_id');
+    $keyword = $request->query('keyword');
 
-    if (!$search) {
-        return response()->json(['message' => 'Parameter family_tree_id wajib diisi'], 400);
+    if (!$keyword) {
+        return response()->json(['message' => 'Parameter keyword wajib diisi'], 400);
     }
 
-    // Cari semua user yang family_tree_id-nya mengandung teks pencarian
-    $users = User::where('family_tree_id', 'like', '%' . $search . '%')->get();
+    // Cari user berdasarkan family_tree_id ATAU nama
+    $users = User::where('family_tree_id', 'like', '%' . $keyword . '%')
+        ->orWhere('full_name', 'like', '%' . $keyword . '%')
+        ->get();
 
     if ($users->isEmpty()) {
-        return response()->json(['message' => 'Tidak ada user dengan family_tree_id tersebut'], 404);
+        return response()->json(['message' => 'Tidak ada user ditemukan'], 404);
     }
 
-    // Tambahkan relasi anak & pasangan (recursive)
+    // Bangun tree lengkap (anak + pasangan) untuk setiap hasil
     $results = [];
     foreach ($users as $user) {
         $results[] = $this->loadChildrenAndSpouseRecursive($user);
     }
 
     return response()->json([
-        'keyword' => $search,
+        'keyword' => $keyword,
         'results' => $results
     ]);
 }
+
 
 
     public function countFamilyMembers($rootId)
@@ -304,27 +307,43 @@ public function updateProfileWithCredential(Request $request)
     ]);
 }
 
+public function getSingleBySearch(Request $request)
+{
+    $keyword = $request->query('keyword');
 
-    public function login(Request $request)
-    {
-        $validated = $request->validate([
-            'family_tree_id' => 'required|string',
-            'birth_year' => 'nullable|string'
-        ]);
+    $users = User::where('family_tree_id', $keyword)
+                ->orWhere('full_name', 'LIKE', "%{$keyword}%")
+                ->get();
+    return $users;
+}
 
-        $user = User::where('family_tree_id', $validated['family_tree_id'])
-            ->when($validated['birth_year'] ?? false, fn($q) => $q->where('birth_year', $validated['birth_year']))
-            ->first();
 
-        if (!$user) {
-            return response()->json(['message' => 'Silsilah NIK atau tanggal lahir tidak ditemukan'], 404);
-        }
 
-        return response()->json([
-            'message' => 'Login berhasil',
-            'data' => $user
-        ]);
+public function login(Request $request)
+{
+    $validated = $request->validate([
+        'family_tree_id' => 'required|string',
+        'password' => 'required|string'
+    ]);
+
+    // Cari user hanya berdasarkan family_tree_id
+    $user = User::where('family_tree_id', $validated['family_tree_id'])
+                ->first();
+
+    if (!$user) {
+        return response()->json(['message' => 'Silsilah ID tidak ditemukan'], 404);
     }
+
+    // Password hardcode: harus 2025
+    if ($validated['password'] !== "2025") {
+        return response()->json(['message' => 'Password salah'], 401);
+    }
+
+    return response()->json([
+        'message' => 'Login berhasil',
+        'data' => $user
+    ]);
+}
 
     public function storeWithoutTree(Request $request)
     {
